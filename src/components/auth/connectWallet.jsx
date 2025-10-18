@@ -32,14 +32,13 @@ const ConnectWallet = () => {
       try {
         isApproved = await contract.isApprovedIssuer(walletAddress);
       } catch (err) {
-        return showError("Contract call failed — check contract address, ABI, or function name.");
+        return showError("Contract call failed. Please set the network to Sepolia in MetaMask.");
       }
 
-      if (!isApproved) return showError('This wallet is not approved by the blockchain admin.');
+      if (!isApproved) return showError('Wallet is not approved by government authority.');
 
       const { data: nonceData } = await api.post('/institute/nonce', { walletAddress });
       const signature = await signer.signMessage(nonceData.message);
-
       await api.post('/institute/login', { walletAddress, signature });
       connectWallet();
     } catch (err) {
