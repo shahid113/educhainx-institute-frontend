@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import PrivateRoute from './components/auth/PrivateRoute';
 import DashboardLayout from './components/Layouts/DashboardLayout';
 import IssueCertificatePage from './pages/IssueCertificatePage';
+import GenerateCertificatePage from './pages/GenerateCertificatePage';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
           {/* Nested routes */}
           <Route index element={<DashboardPage />} /> {/* default /dashboard page */}
           <Route path="issue-certificate" element={<IssueCertificatePage />} />
+          <Route path="generate-certificate" element={<GenerateCertificatePage/>} />
         </Route>
       </Routes>
     </AuthProvider>

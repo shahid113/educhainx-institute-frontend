@@ -1,4 +1,4 @@
-[
+ [
     {
       "inputs": [],
       "stateMutability": "nonpayable",
@@ -123,7 +123,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     },
     {
       "inputs": [
@@ -142,7 +143,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     },
     {
       "inputs": [
@@ -161,7 +163,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     },
     {
       "inputs": [],
@@ -174,7 +177,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     },
     {
       "inputs": [],
@@ -225,17 +229,17 @@
     {
       "inputs": [
         {
-          "internalType": "bytes32",
-          "name": "certHash",
-          "type": "bytes32"
+          "internalType": "bytes32[]",
+          "name": "certHashes",
+          "type": "bytes32[]"
         },
         {
-          "internalType": "string",
-          "name": "metadata",
-          "type": "string"
+          "internalType": "string[]",
+          "name": "metadataList",
+          "type": "string[]"
         }
       ],
-      "name": "storeCertificateHash",
+      "name": "storeCertificateHashes",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -274,7 +278,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     },
     {
       "inputs": [],
@@ -287,12 +292,7 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     }
-]
-
-
-
-
-
-
+  ]

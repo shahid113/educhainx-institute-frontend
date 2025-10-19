@@ -9,6 +9,7 @@ const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
 const ConnectWallet = () => {
   const { connectWallet } = useContext(AuthContext);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false); // new loading state
 
   const showError = (message) => {
     setError(message);
@@ -17,6 +18,7 @@ const ConnectWallet = () => {
 
   const handleConnect = async () => {
     if (!window.ethereum) return showError('MetaMask not detected. Please install it first!');
+    setLoading(true); // start loading
 
     try {
       await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -32,10 +34,14 @@ const ConnectWallet = () => {
       try {
         isApproved = await contract.isApprovedIssuer(walletAddress);
       } catch (err) {
+        setLoading(false);
         return showError("Contract call failed. Please set the network to Sepolia in MetaMask.");
       }
 
-      if (!isApproved) return showError('Wallet is not approved by government authority.');
+      if (!isApproved) {
+        setLoading(false);
+        return showError('Wallet is not approved by government authority.');
+      }
 
       const { data: nonceData } = await api.post('/institute/nonce', { walletAddress });
       const signature = await signer.signMessage(nonceData.message);
@@ -45,6 +51,8 @@ const ConnectWallet = () => {
       if (err.code === 4001) showError('You rejected the MetaMask request.');
       else if (err.code === 'ACTION_REJECTED') showError('Transaction or signature rejected.');
       else showError(err.response?.data?.error || err.message || 'Unexpected error occurred.');
+    } finally {
+      setLoading(false); // stop loading
     }
   };
 
@@ -78,9 +86,22 @@ const ConnectWallet = () => {
 
           <button
             onClick={handleConnect}
-            className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-white py-3 rounded-xl font-semibold text-base sm:text-lg shadow-lg hover:shadow-orange-300/50 hover:scale-105 transition-transform duration-300"
+            disabled={loading}
+            className={`w-full flex justify-center items-center gap-2 bg-gradient-to-r from-orange-500 to-yellow-400 text-white py-3 rounded-xl font-semibold text-base sm:text-lg shadow-lg hover:shadow-orange-300/50 hover:scale-105 transition-transform duration-300 ${
+              loading ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
           >
-            🔗 Connect MetaMask
+            {loading ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                Connecting...
+              </>
+            ) : (
+              '🔗 Connect MetaMask'
+            )}
           </button>
 
           {error && (

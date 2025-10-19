@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 function HomePage() {
   const [form, setForm] = useState({
     certificateNo: '',
-    dateOfIssue: '',
+    dateofIssue: '', // <-- must match issuance
     name: '',
     enrolmentNo: '',
     graduationYear: '',
@@ -32,15 +32,18 @@ function HomePage() {
     setResult(null)
 
     try {
+      // --- Include dateofIssue exactly as in issuance ---
       const certPayload = {
         certificateNo: form.certificateNo.trim(),
+        dateofIssue: form.dateofIssue.trim(),
         name: form.name.trim(),
         enrolmentNo: form.enrolmentNo.trim(),
         graduationYear: form.graduationYear.trim(),
-        degree: form.degree.trim()
+        degree: form.degree.trim(),
       }
 
       const certHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(certPayload)))
+      console.log('Certificate Hash:', certHash)
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/verifier/verify`, {
         method: 'POST',
@@ -184,7 +187,7 @@ function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[
                 { label: 'Certificate Number', name: 'certificateNo', type: 'text' },
-                { label: 'Date of Issue', name: 'dateOfIssue', type: 'date' },
+                { label: 'Date of Issue', name: 'dateofIssue', type: 'date' }, // must match issuance
                 { label: 'Full Name', name: 'name', type: 'text' },
                 { label: 'Enrolment Number', name: 'enrolmentNo', type: 'text' },
                 { label: 'Graduation Year', name: 'graduationYear', type: 'number' },
