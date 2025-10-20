@@ -1,4 +1,4 @@
-import CertificateForm from "../components/Dashboard/CertificateForm";
+import CertificateForm from "../components/Layouts/CertificateForm";
 
 const IssueCertificatePage = () => {
   return <CertificateForm/>

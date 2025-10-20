@@ -87,12 +87,12 @@ const IssueCertificatePage = () => {
               degree: row['Degree']?.trim() || '',
             };
           }).filter(s => s && Object.values(s).some(v => v));
-          
+
           if (parsedStudents.length === 0) {
             setError('No valid data found in CSV. Ensure correct headers and data.');
             return;
           }
-          
+
           setStudents([...students, ...parsedStudents]);
         },
         error: (err) => {
@@ -115,9 +115,19 @@ const IssueCertificatePage = () => {
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, signer);
 
-      const certHashes = students.map(student =>
-        ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(student)))
-      );
+      // Optimized hash generation using specific fields
+      const certHashes = students.map(student => {
+        const { certificateNo, dateofIssue, name, enrolmentNo, graduationYear, degree } = student;
+        const concatenatedData = [
+          certificateNo,
+          dateofIssue,
+          name,
+          enrolmentNo,
+          graduationYear,
+          degree
+        ].map(value => String(value).toLowerCase()).join('');
+        return ethers.keccak256(ethers.toUtf8Bytes(concatenatedData));
+      });
 
       const metadataList = students.map((student) =>
         JSON.stringify({
@@ -171,13 +181,13 @@ const IssueCertificatePage = () => {
   };
 
   const isFormValid = () => {
-    return students.every(student => 
+    return students.every(student =>
       student.certificateNo && student.dateofIssue && student.name && student.enrolmentNo && student.graduationYear && student.degree
     );
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto relative bg-white shadow-lg rounded-lg">
+    <div className="p-6 mx-auto relative bg-white shadow-lg rounded-lg">
       <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">Issue Certificates On Chain</h2>
 
       {error && (

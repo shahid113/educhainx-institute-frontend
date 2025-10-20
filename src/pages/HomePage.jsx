@@ -25,14 +25,14 @@ function HomePage() {
   const handleStartVerification = () =>
     verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
+
   const handleVerify = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    setResult(null)
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setResult(null);
 
     try {
-      // --- Include dateofIssue exactly as in issuance ---
       const certPayload = {
         certificateNo: form.certificateNo.trim(),
         dateofIssue: form.dateofIssue.trim(),
@@ -40,36 +40,45 @@ function HomePage() {
         enrolmentNo: form.enrolmentNo.trim(),
         graduationYear: form.graduationYear.trim(),
         degree: form.degree.trim(),
-      }
+      };
 
-      const certHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(certPayload)))
-      console.log('Certificate Hash:', certHash)
+      // Generate hash using specific fields in lowercase
+      const concatenatedData = [
+        certPayload.certificateNo,
+        certPayload.dateofIssue,
+        certPayload.name,
+        certPayload.enrolmentNo,
+        certPayload.graduationYear,
+        certPayload.degree
+      ].map(value => String(value).toLowerCase()).join('');
+      const certHash = ethers.keccak256(ethers.toUtf8Bytes(concatenatedData));
+      console.log('Certificate Hash:', certHash);
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/verifier/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providedHash: certHash })
-      })
+      });
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Verification failed')
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Verification failed');
 
       if (!data.valid) {
-        setError('❌ Certificate not found or invalid.')
+        setError('❌ Certificate not found or invalid.');
       } else {
         setResult({
           certId: data.certId,
           metadata: JSON.parse(data.metadata),
           certHash
-        })
-        setShowModal(true)
+        });
+        setShowModal(true);
       }
     } catch (err) {
-      setError(err.message || 'Something went wrong while verifying.')
+      setError(err.message || 'Something went wrong while verifying.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-blue-50 text-slate-900 overflow-hidden">
