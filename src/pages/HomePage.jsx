@@ -296,8 +296,16 @@ function HomePage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-slate-200 px-6 sm:px-8 py-8 sm:py-12 text-center text-slate-600 text-sm sm:text-base">
-        <p>© 2025 EduchainX. Powered by blockchain technology. Secure. Transparent. Trusted.</p>
+        <p>© 2025 EduchainX. Powered by blockchain technology.</p>
+
+        <div className="mt-4 max-w-3xl mx-auto bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs sm:text-sm text-slate-500 leading-relaxed">
+          <strong className="text-slate-700">Disclaimer:</strong> This website is a demo/prototype
+          project created solely for <strong>educational and demonstration purposes</strong>. It does
+          <strong> not collect, store, or share</strong> any personal data from users. All features are
+          simulated to showcase blockchain-based certificate verification technology.
+        </div>
       </footer>
+
 
       {/* Animations */}
       <style>{`
