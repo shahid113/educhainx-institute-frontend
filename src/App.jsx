@@ -32,17 +32,6 @@ function App() {
           <Route path="generate-certificate" element={<GenerateCertificatePage/>} />
         </Route>
       </Routes>
-
-
-         {/* Optional React Footer only for homepage */}
-      {location.pathname === "/" && (
-        <footer className="text-center bg-gray-50 py-4 text-sm text-gray-600 border-t border-gray-200">
-          <strong>Disclaimer:</strong> EduchainX is a demo/prototype created solely
-          for <strong>educational and demonstration purposes.</strong> This site does
-          not collect, store, or share any personal data. All functionality is
-          simulated for research and learning use only.
-        </footer>
-      )}
     </AuthProvider>
 
     

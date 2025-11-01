@@ -1,31 +1,175 @@
-import { useState, useRef } from 'react'
-import { ethers } from 'ethers'
-import { CheckCircle, Shield, ArrowRight, XCircle, Menu, X } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { ethers } from 'ethers';
+import {
+  CheckCircle, Shield, Menu, X,
+  Upload, Camera, FileText, Loader2, Copy, Edit3
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import PROMPT from '../utils/prompt';
 
-function HomePage() {
+export default function HomePage() {
+  // --- State ---
   const [form, setForm] = useState({
     certificateNo: '',
-    dateofIssue: '', // <-- must match issuance
+    dateofIssue: '',
     name: '',
     enrolmentNo: '',
     graduationYear: '',
     degree: ''
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [result, setResult] = useState(null)
-  const [showModal, setShowModal] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const verifyRef = useRef(null)
-  const navigate = useNavigate()
+  });
 
-  const handleNavigateToLogin = () => navigate('/login')
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
-  const handleStartVerification = () =>
-    verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [extracting, setExtracting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [result, setResult] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
+  const verifyRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const navigate = useNavigate();
 
+  // --- Gemini Setup ---
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const GEMINI_PROMPT = PROMPT;
+
+  // --- Helpers ---
+  const handleNavigateToLogin = () => navigate('/login');
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const scrollToVerify = () => {
+    verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const resetForm = () => {
+    setForm({
+      certificateNo: '', dateofIssue: '', name: '',
+      enrolmentNo: '', graduationYear: '', degree: ''
+    });
+    setUploadedFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setError('');
+    setSuccessMsg('Form reset');
+    setTimeout(() => setSuccessMsg(''), 2000);
+  };
+
+  // --- File to Base64 ---
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // --- Gemini AI Extraction ---
+  const extractWithGemini = async (file) => {
+    if (!GEMINI_API_KEY) {
+      setError('Gemini API key missing. Check .env');
+      return;
+    }
+
+    setExtracting(true);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      const base64 = await fileToBase64(file);
+      const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg';
+
+      const res = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: GEMINI_PROMPT },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64.split(',')[1]
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            response_mime_type: 'application/json'
+          }
+        })
+      });
+
+      if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
+
+      const data = await res.json();
+      let jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      jsonText = jsonText.replace(/```json|```/g, '').trim();
+      const extracted = JSON.parse(jsonText);
+
+      // Auto-fill form
+      setForm({
+        certificateNo: extracted.certificateNo || '',
+        dateofIssue: extracted.dateofIssue || '',
+        name: extracted.name || '',
+        enrolmentNo: extracted.enrolmentNo || '',
+        graduationYear: extracted.graduationYear || '',
+        degree: extracted.degree || ''
+      });
+
+      setSuccessMsg('AI extracted data successfully!');
+      setShowManualForm(true); // Show form after AI fill
+    } catch (err) {
+      setError(`AI extraction failed: ${err.message}. Try manual entry.`);
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  // --- File Handling ---
+  const handleFileSelect = (file) => {
+    setUploadedFile(file);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    extractWithGemini(file);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileSelect(file);
+  };
+
+  // --- Drag & Drop ---
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  };
+
+  const openCamera = () => cameraInputRef.current?.click();
+
+  // --- Verify on Blockchain ---
   const handleVerify = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -33,7 +177,7 @@ function HomePage() {
     setResult(null);
 
     try {
-      const certPayload = {
+      const payload = {
         certificateNo: form.certificateNo.trim(),
         dateofIssue: form.dateofIssue.trim(),
         name: form.name.trim(),
@@ -42,17 +186,11 @@ function HomePage() {
         degree: form.degree.trim(),
       };
 
-      // Generate hash using specific fields in lowercase
-      const concatenatedData = [
-        certPayload.certificateNo,
-        certPayload.dateofIssue,
-        certPayload.name,
-        certPayload.enrolmentNo,
-        certPayload.graduationYear,
-        certPayload.degree
-      ].map(value => String(value).toLowerCase()).join('');
-      const certHash = ethers.keccak256(ethers.toUtf8Bytes(concatenatedData));
-      console.log('Certificate Hash:', certHash);
+      const concatenated = Object.values(payload)
+        .map(v => String(v).toLowerCase())
+        .join('');
+
+      const certHash = ethers.keccak256(ethers.toUtf8Bytes(concatenated));
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/verifier/verify`, {
         method: 'POST',
@@ -64,264 +202,356 @@ function HomePage() {
       if (!res.ok) throw new Error(data.error || 'Verification failed');
 
       if (!data.valid) {
-        setError('❌ Certificate not found or invalid.');
+        setError('Certificate not found or invalid.');
       } else {
-        setResult({
-          certId: data.certId,
-          metadata: JSON.parse(data.metadata),
-          certHash
-        });
+        setResult({ certId: data.certId, metadata: JSON.parse(data.metadata), certHash });
         setShowModal(true);
       }
     } catch (err) {
-      setError(err.message || 'Something went wrong while verifying.');
+      setError(err.message || 'Verification failed.');
     } finally {
       setLoading(false);
     }
   };
 
+  // --- Copy to Clipboard ---
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setSuccessMsg('Copied!');
+      setTimeout(() => setSuccessMsg(''), 2000);
+    } catch {
+      setError('Failed to copy');
+    }
+  };
+
+  // --- Cleanup preview ---
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-blue-50 text-slate-900 overflow-hidden">
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
-        <div
-          className="absolute bottom-20 right-10 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"
-          style={{ animationDelay: '1s' }}
-        ></div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 text-slate-900">
 
-      {/* Navbar */}
-      <nav className="relative z-20 flex items-center justify-between px-6 sm:px-8 py-4 backdrop-blur-md bg-white/80 border-b border-slate-200/50">
-        {/* Logo */}
-        <div className="flex items-center gap-2">
-          <Shield className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600" />
-          <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            EduchainX
-          </span>
-        </div>
+      {/* Navigation */}
+      <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/80 border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 rounded-lg bg-gradient-to-tr from-blue-600 to-purple-600 text-white">
+                <Shield className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">EduchainX</h1>
+                <p className="text-xs text-slate-500">Blockchain Certificate Verification</p>
+              </div>
+            </div>
 
-        {/* Desktop Menu */}
-        <div className="hidden md:flex gap-4 sm:gap-6 text-sm font-medium">
-          <a
-            href="#verify"
-            className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold transition"
-          >
-            Verify
-          </a>
-          <button
-            onClick={handleNavigateToLogin}
-            className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold transition"
-          >
-            Institute Login
-          </button>
-        </div>
-
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 text-slate-700 hover:text-slate-900 transition"
-        >
-          {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
-
-        {/* Mobile Dropdown */}
-        {mobileMenuOpen && (
-          <div className="absolute top-full left-0 w-full bg-white border-t border-slate-200 shadow-lg md:hidden animate-fade-in">
-            <div className="flex flex-col items-center gap-3 py-4">
-              <a
-                href="#verify"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-10/12 text-center px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold transition"
-              >
-                Verify
-              </a>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false)
-                  handleNavigateToLogin()
-                }}
-                className="w-10/12 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold transition"
-              >
+            <div className="hidden md:flex items-center gap-3">
+              <button onClick={scrollToVerify} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:scale-105 transition">
+                Verify Now
+              </button>
+              <button onClick={handleNavigateToLogin} className="px-5 py-2.5 rounded-xl border border-slate-300 font-medium hover:bg-slate-50 transition">
                 Institute Login
               </button>
             </div>
+
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 rounded-lg hover:bg-slate-100">
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-slate-200 px-4 py-3 space-y-2">
+            <button onClick={() => { setMobileMenuOpen(false); scrollToVerify(); }} className="w-full text-left py-2.5 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg">
+              Verify Now
+            </button>
+            <button onClick={() => { setMobileMenuOpen(false); handleNavigateToLogin(); }} className="w-full text-left py-2.5 px-4 border rounded-lg">
+              Institute Login
+            </button>
           </div>
         )}
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative z-10 px-6 sm:px-8 py-16 sm:py-20 text-center max-w-6xl mx-auto">
-        <div className="mb-6 inline-block px-3 py-2 sm:px-4 sm:py-2 rounded-full bg-blue-100 border border-blue-200 text-blue-700 text-sm font-medium">
-          🔐 Blockchain-Powered Verification
-        </div>
+      {/* Main Verification Section */}
+      <main className="max-w-4xl mx-auto px-4 py-12" ref={verifyRef}>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
 
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold mb-6 leading-tight text-slate-900">
-          Verify Your Credentials with{' '}
-          <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Absolute Certainty
-          </span>
-        </h1>
-
-        <p className="text-base sm:text-lg md:text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
-          Instantly authenticate your educational certificates using decentralized blockchain
-          technology.
-        </p>
-
-        <button
-          onClick={handleStartVerification}
-          className="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold transition-all transform hover:scale-105 shadow-lg"
-        >
-          Start Verification <ArrowRight className="w-5 h-5" />
-        </button>
-      </section>
-
-      {/* Verification Form */}
-      <section
-        id="verify"
-        ref={verifyRef}
-        className="relative z-10 px-4 sm:px-8 py-16 sm:py-20 max-w-4xl mx-auto w-full scroll-smooth"
-      >
-        <div className="rounded-2xl bg-white border border-slate-200 shadow-xl overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 px-6 sm:px-8 py-6 sm:py-8 border-b border-slate-200">
-            <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-2 text-slate-900">
-              <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" /> Verify Your Certificate
-            </h2>
-            <p className="text-slate-600 mt-2 text-sm sm:text-base">
-              Enter your certificate details below for instant verification
-            </p>
+          {/* Header */}
+          <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Shield className="w-7 h-7 text-blue-600" />
+                <div>
+                  <h2 className="text-xl font-bold">Verify Certificate</h2>
+                  <p className="text-sm text-slate-600">AI-powered extraction or manual entry</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-slate-600">Live</span>
+              </div>
+            </div>
           </div>
 
-          <form onSubmit={handleVerify} className="p-6 sm:p-8 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[
-                { label: 'Certificate Number', name: 'certificateNo', type: 'text' },
-                { label: 'Date of Issue', name: 'dateofIssue', type: 'date' }, // must match issuance
-                { label: 'Full Name', name: 'name', type: 'text' },
-                { label: 'Enrolment Number', name: 'enrolmentNo', type: 'text' },
-                { label: 'Graduation Year', name: 'graduationYear', type: 'number' },
-                { label: 'Degree', name: 'degree', type: 'text' }
-              ].map((field) => (
-                <div key={field.name}>
-                  <label className="block text-sm font-semibold mb-2 text-slate-700">
-                    {field.label}
-                  </label>
-                  <input
-                    type={field.type}
-                    name={field.name}
-                    value={form[field.name]}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition"
-                    placeholder={`Enter ${field.label.toLowerCase()}`}
-                  />
+          <div className="p-6 space-y-6">
+
+            {/* Option Tabs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Upload Option */}
+              <label
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                className={`relative cursor-pointer rounded-2xl border-2 p-6 text-center transition-all
+                  ${dragActive ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-100' : 'border-slate-300 hover:border-blue-400'}
+                  ${uploadedFile ? 'bg-blue-50 border-blue-400' : ''}
+                `}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                <div className="flex flex-col items-center gap-3">
+                  {uploadedFile ? (
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  ) : (
+                    <Upload className="w-8 h-8 text-slate-600" />
+                  )}
+                  <div>
+                    <p className="font-semibold text-slate-800">Upload or Take Photo</p>
+                    <p className="text-xs text-slate-500">AI will auto-fill form</p>
+                  </div>
                 </div>
-              ))}
+
+                <div className="mt-4 flex justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-slate-50"
+                  >
+                    Choose File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCamera}
+                    className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-slate-50 sm:hidden"
+                  >
+                    <Camera className="w-4 h-4 inline mr-1" /> Camera
+                  </button>
+                </div>
+              </label>
+
+              {/* Manual Option */}
+              <button
+                onClick={() => setShowManualForm(true)}
+                className={`rounded-2xl border-2 p-6 text-center transition-all
+                  ${showManualForm ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-blue-400'}
+                `}
+              >
+                <Edit3 className="w-8 h-8 mx-auto text-slate-600" />
+                <p className="mt-3 font-semibold text-slate-800">Enter Details Manually</p>
+                <p className="text-xs text-slate-500">Fill form yourself</p>
+              </button>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 px-6 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Verifying...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Verify Certificate
-                </>
-              )}
-            </button>
-          </form>
+            {/* File Preview */}
+            {uploadedFile && previewUrl && (
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
+                <div className="w-16 h-16 bg-white border rounded-lg flex items-center justify-center overflow-hidden">
+                  {uploadedFile.type === 'application/pdf' ? (
+                    <FileText className="w-8 h-8 text-slate-600" />
+                  ) : (
+                    <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm truncate">{uploadedFile.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {(uploadedFile.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setUploadedFile(null);
+                    if (previewUrl) URL.revokeObjectURL(previewUrl);
+                    setPreviewUrl(null);
+                    setShowManualForm(false);
+                  }}
+                  className="text-red-600 hover:bg-red-50 p-2 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
 
-          {error && (
-            <div className="mx-6 sm:mx-8 mb-8 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 font-medium text-sm sm:text-base">
-              {error}
-            </div>
-          )}
-        </div>
-      </section>
+            {/* AI Extraction Status */}
+            {extracting && (
+              <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-xl">
+                <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                <div>
+                  <p className="font-medium">AI is reading your certificate...</p>
+                  <p className="text-xs text-slate-600">This usually takes 3-5 seconds</p>
+                </div>
+              </div>
+            )}
 
-      {/* Modal Popup */}
-      {showModal && result && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in px-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-green-200 relative animate-scale-in">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition"
-            >
-              <XCircle className="w-6 h-6" />
-            </button>
+            {/* Success Message */}
+            {successMsg && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg text-sm">
+                <CheckCircle className="w-5 h-5" />
+                {successMsg}
+              </div>
+            )}
 
-            <div className="flex items-center gap-2 mb-4 text-green-700">
-              <CheckCircle className="w-6 h-6" />
-              <h3 className="text-lg sm:text-xl font-semibold">Certificate Verified Successfully</h3>
-            </div>
-
-            <div className="space-y-3 text-slate-700 text-sm sm:text-base">
-              <p>
-                <span className="font-semibold">Certificate ID:</span> {result.certId}
-              </p>
-              <p>
-                <span className="font-semibold">Hash:</span>{' '}
-                <code className="bg-slate-100 px-2 py-1 rounded text-xs break-all block">
-                  {result.certHash}
-                </code>
-              </p>
-
-              <div className="border-t border-slate-200 pt-3 mt-3">
-                <h4 className="font-semibold text-green-700 mb-2">Metadata</h4>
-                <div className="bg-slate-50 rounded-lg p-4 text-sm space-y-2">
-                  {Object.entries(result.metadata).map(([key, value]) => (
-                    <div
-                      key={key}
-                      className="flex justify-between border-b border-slate-200/60 pb-1 text-xs sm:text-sm"
-                    >
-                      <span className="capitalize text-slate-600">
-                        {key.replace(/([A-Z])/g, ' $1')}
-                      </span>
-                      <span className="font-medium text-slate-900">{String(value)}</span>
+            {/* Manual Form (Only shown when needed) */}
+            {showManualForm && (
+              <form onSubmit={handleVerify} className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { label: 'Certificate Number', name: 'certificateNo', type: 'text' },
+                    { label: 'Date of Issue', name: 'dateofIssue', type: 'date' },
+                    { label: 'Full Name', name: 'name', type: 'text' },
+                    { label: 'Enrolment Number', name: 'enrolmentNo', type: 'text' },
+                    { label: 'Graduation Year', name: 'graduationYear', type: 'text', pattern: '\\d{4}' },
+                    { label: 'Degree', name: 'degree', type: 'text' }
+                  ].map((field) => (
+                    <div key={field.name}>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        {field.label} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type={field.type}
+                        name={field.name}
+                        value={form[field.name]}
+                        onChange={handleChange}
+                        required
+                        pattern={field.pattern}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
+                        placeholder={field.label}
+                      />
                     </div>
                   ))}
                 </div>
+
+                {/* Error */}
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+                    {error}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="submit"
+                    disabled={loading || extracting}
+                    className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium disabled:opacity-60 hover:scale-105 transition"
+                  >
+                    {loading ? (
+                      <> <Loader2 className="w-5 h-5 animate-spin" /> Verifying...</>
+                    ) : (
+                      <> <CheckCircle className="w-5 h-5" /> Verify Certificate</>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-5 py-3 rounded-xl border border-slate-300 hover:bg-slate-50 transition"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* Result Modal */}
+      {showModal && result && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 border border-green-100">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-7 h-7 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Verified Successfully!</h3>
+                  <p className="text-sm text-slate-600">Certificate exists on blockchain</p>
+                </div>
+              </div>
+              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Certificate ID</span>
+                <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">{result.certId}</code>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Hash</span>
+                <div className="flex items-center gap-2">
+                  <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded max-w-32 truncate">{result.certHash}</code>
+                  <button onClick={() => copyToClipboard(result.certHash)} className="p-1.5 hover:bg-slate-200 rounded">
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-xl">
+                <h4 className="font-semibold mb-2">Verified Details</h4>
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  {Object.entries(result.metadata).map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                      <span className="text-slate-600 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                      <span className="font-medium">{String(value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4">
+                <a
+                  href={`${import.meta.env.VITE_API_URL}/verifier/report/${result.certId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 text-sm border rounded-xl hover:bg-slate-50"
+                >
+                  Download Report
+                </a>
+                <button
+                  onClick={() => { setShowModal(false); resetForm(); }}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium"
+                >
+                  Done
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-200 px-6 sm:px-8 py-8 sm:py-12 text-center text-slate-600 text-sm sm:text-base">
-        <p>© 2025 EduchainX. Powered by blockchain technology.</p>
-
-        <div className="mt-4 max-w-3xl mx-auto bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs sm:text-sm text-slate-500 leading-relaxed">
-          <strong className="text-slate-700">Disclaimer:</strong> This website is a demo/prototype
-          project created solely for <strong>educational and demonstration purposes</strong>. It does
-          <strong> not collect, store, or share</strong> any personal data from users. All features are
-          simulated to showcase blockchain-based certificate verification technology.
-        </div>
-      </footer>
-
-
-      {/* Animations */}
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes scale-in {
-          from { transform: scale(0.95); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-        .animate-scale-in { animation: scale-in 0.25s ease-out forwards; }
-      `}</style>
     </div>
-  )
+  );
 }
-
-export default HomePage
