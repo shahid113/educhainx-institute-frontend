@@ -61,7 +61,50 @@ export default function HomePage() {
     setPreviewUrl(null);
     setError('');
     setSuccessMsg('Form reset');
+    setShowManualForm(false);
     setTimeout(() => setSuccessMsg(''), 2000);
+  };
+
+  // --- Date parsing & formatting for <input type="date"> ---
+  // Accepts several common formats and returns YYYY-MM-DD or empty string
+  const formatDateForInput = (raw) => {
+    if (!raw) return '';
+    // If already in YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+    // DD-MM-YYYY or DD/MM/YYYY
+    let m = raw.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})$/);
+    if (m) {
+      const [_, d, mo, y] = m;
+      return `${y}-${mo}-${d}`;
+    }
+
+    // MM-DD-YYYY
+    m = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (m) {
+      const [_, mo, d, y] = m;
+      return `${y}-${mo}-${d}`;
+    }
+
+    // "Month DD, YYYY" (e.g. January 5, 2023)
+    const parsed = Date.parse(raw);
+    if (!isNaN(parsed)) {
+      const dt = new Date(parsed);
+      const yyyy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Last resort: try to extract 4-digit year and numbers
+    const yearMatch = raw.match(/(\d{4})/);
+    if (yearMatch) {
+      const year = yearMatch[1];
+      // fallback to Jan 01 of that year
+      return `${year}-01-01`;
+    }
+
+    return '';
   };
 
   // --- File to Base64 ---
@@ -119,10 +162,10 @@ export default function HomePage() {
       jsonText = jsonText.replace(/```json|```/g, '').trim();
       const extracted = JSON.parse(jsonText);
 
-      // Auto-fill form
+      // Auto-fill form and ensure date is formatted for input[type=date]
       setForm({
         certificateNo: extracted.certificateNo || '',
-        dateofIssue: extracted.dateofIssue || '',
+        dateofIssue: formatDateForInput(extracted.dateofIssue || ''),
         name: extracted.name || '',
         enrolmentNo: extracted.enrolmentNo || '',
         graduationYear: extracted.graduationYear || '',
@@ -140,14 +183,21 @@ export default function HomePage() {
 
   // --- File Handling ---
   const handleFileSelect = (file) => {
+    if (!file) return;
     setUploadedFile(file);
+
+    // revoke previous preview if any
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
+
+    // start extraction but allow user to edit later
     extractWithGemini(file);
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+    const file = e?.target?.files && e.target.files[0];
     if (file) handleFileSelect(file);
   };
 
@@ -167,7 +217,13 @@ export default function HomePage() {
     if (file) handleFileSelect(file);
   };
 
-  const openCamera = () => cameraInputRef.current?.click();
+  const openCamera = () => {
+    // Reset value so same-file capture works repeatedly
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = null;
+      cameraInputRef.current.click();
+    }
+  };
 
   // --- Verify on Blockchain ---
   const handleVerify = async (e) => {
@@ -325,6 +381,7 @@ export default function HomePage() {
                   type="file"
                   accept="image/*"
                   capture="environment"
+                  onClick={(e) => { e.currentTarget.value = null; }}
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -349,10 +406,11 @@ export default function HomePage() {
                   >
                     Choose File
                   </button>
+                  {/* Make camera visible across screen sizes and make sure input is reset before clicking */}
                   <button
                     type="button"
                     onClick={openCamera}
-                    className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-slate-50 sm:hidden"
+                    className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-slate-50"
                   >
                     <Camera className="w-4 h-4 inline mr-1" /> Camera
                   </button>
@@ -408,7 +466,7 @@ export default function HomePage() {
                 <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
                 <div>
                   <p className="font-medium">AI is reading your certificate...</p>
-                  <p className="text-xs text-slate-600">This usually takes 3-5 seconds</p>
+                  <p className="text-xs text-slate-600">This usually takes a few seconds</p>
                 </div>
               </div>
             )}

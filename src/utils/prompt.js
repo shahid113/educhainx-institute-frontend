@@ -28,7 +28,7 @@ RULES & GUIDELINES:
    - If unclear, return "".
 8) Names and degree:
    - For "name" return the full student name exactly as printed, preserving capitalization and diacritics.
-   - For "degree" return the full degree text exactly as printed (e.g., "B.Tech", "M.Sc.", "Bachelor of Science").
+   - For "degree" return the degree text (e.g., "B.Tech", "M.Sc.", "M.Tech", "BA", "MBA" ).
 9) Enrollment / roll numbers:
    - For "enrolmentNo" return the exact enrollment or roll number text as printed (do not add or remove leading zeros unless clearly an OCR error).
 10) PDFs / multi-page inputs:

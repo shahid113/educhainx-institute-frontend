@@ -48,60 +48,133 @@ const GenerateCertificatePage = () => {
     }
   };
 
-  // 🔹 Common reusable PDF generator
   const generatePDF = async (cert) => {
-    const pdf = new jsPDF('landscape', 'pt', 'a4');
-    const w = pdf.internal.pageSize.getWidth();
-    const h = pdf.internal.pageSize.getHeight();
+  const pdf = new jsPDF('landscape', 'pt', 'a4');
+  const w = pdf.internal.pageSize.getWidth();
+  const h = pdf.internal.pageSize.getHeight();
+  const margin = 90;
 
-    // Background
-    pdf.setFillColor('#fff');
-    pdf.rect(0, 0, w, h, 'F');
-    pdf.setLineWidth(4);
-    pdf.rect(20, 20, w - 40, h - 40);
-    pdf.setLineWidth(1.5);
-    pdf.rect(40, 40, w - 80, h - 80);
-
-    // Logo
-    const logo = cert.instituteId.logo ? await toBase64(cert.instituteId.logo) : null;
-    if (logo) pdf.addImage(logo, 'PNG', w / 2 - 60, 50, 120, 120);
-
-    // Title + Content
-    pdf.setFontSize(36).setFont(undefined, 'bold');
-    pdf.text('Graduation Certificate', w / 2, 200, { align: 'center' });
-
-    pdf.setFontSize(20).setFont(undefined, 'normal');
-    pdf.text(cert.instituteId?.name || 'Unknown Institute', w / 2, 240, { align: 'center' });
-
-    pdf.setFontSize(18);
-    pdf.text('This is to certify that', w / 2, 280, { align: 'center' });
-
-    pdf.setFontSize(28).setFont(undefined, 'bold');
-    pdf.text(cert.name || 'Unknown Name', w / 2, 320, { align: 'center' });
-
-    pdf.setFontSize(16).setFont(undefined, 'normal');
-    pdf.text(`Enrollment No: ${cert.enrolmentNo || 'N/A'}`, w / 2, 350, { align: 'center' });
-
-    pdf.setFontSize(18);
-    pdf.text('has successfully completed the requirements for the degree of', w / 2, 380, { align: 'center' });
-
-    pdf.setFontSize(22).setFont(undefined, 'bold');
-    pdf.text(cert.degree || 'Unknown Degree', w / 2, 420, { align: 'center' });
-
-    pdf.setFontSize(16);
-    pdf.text(`Graduated In: ${cert.graduationYear || 'Unknown Year'}`, w / 2, 460, { align: 'center' });
-    pdf.text(`Certificate ID: ${cert.certificateNo || 'Unknown ID'}`, w / 2, 480, { align: 'center' });
-
-    // QR Code
-    const txUrl = `https://sepolia.etherscan.io/tx/${cert.transactionHash}`;
-    const qrDataUrl = await QRCode.toDataURL(txUrl);
-    pdf.addImage(qrDataUrl, 'PNG', w - 180, h - 180, 150, 150);
-
-    pdf.setFontSize(10).setTextColor('#555');
-    pdf.text(`Transaction Hash: ${cert.transactionHash}`, 50, h - 30);
-
-    return pdf;
+  // Helper: Format date DD-MM-YYYY
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '________';
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
   };
+
+  // === 1. Background (optional light pattern) ===
+  for (let i = 0; i < h; i += 2) {
+    const color = i < h / 2 ? 250 : 248;
+    pdf.setFillColor(color, color, 252);
+    pdf.rect(0, i, w, 2, 'F');
+  }
+
+  // Decorative diagonal lines
+  pdf.setDrawColor(230, 230, 255);
+  pdf.setLineWidth(0.3);
+  for (let i = -150; i < w + 150; i += 50) {
+    pdf.line(i, 0, i + h, h);
+    pdf.line(i - h, 0, i, h);
+  }
+
+  // === 2. Double Border ===
+  pdf.setDrawColor(180, 140, 60);
+  pdf.setLineWidth(10);
+  pdf.rect(15, 15, w - 30, h - 30);
+
+  pdf.setDrawColor(100, 100, 150);
+  pdf.setLineWidth(2);
+  pdf.rect(35, 35, w - 70, h - 70);
+
+  // === 3. Top Layout: Certificate ID (Top-left), Date of Issue (Top-right), Logo (Top-center) ===
+
+  // Certificate ID - Top-left
+  pdf.setFont('helvetica', 'normal').setFontSize(12).setTextColor(80, 80, 80);
+  pdf.text(`Certificate ID: ${cert.certificateNo || 'N/A'}`, margin, 50);
+
+  // Date of Issue - Top-right
+  pdf.text(`Date of Issue: ${formatDate(cert.dateofIssue)}`, w - margin, 50, { align: 'right' });
+
+  // Logo - Top-center
+  const logo = cert.instituteId?.logo ? await toBase64(cert.instituteId.logo) : null;
+  if (logo) {
+    pdf.addImage(logo, 'PNG', w / 2 - 60, 70, 120, 120);
+  }
+
+  // Institute Name - Below Logo
+  pdf.setFont('times', 'italic').setFontSize(26).setTextColor(70, 70, 110);
+  pdf.text(cert.instituteId?.name || 'Institute Name', w / 2, 210, { align: 'center' });
+
+  // Title: Pass Certificate
+  pdf.setFont('helvetica', 'bold').setFontSize(38).setTextColor(40, 40, 90);
+  pdf.text('Pass Certificate', w / 2, 250, { align: 'center' });
+
+  // Underline below title
+  pdf.setDrawColor(180, 140, 60);
+  pdf.setLineWidth(2);
+  pdf.line(w / 2 - 160, 260, w / 2 + 160, 260);
+
+  // === 4. Certificate Body Text ===
+  const bodyX = w / 2;
+  let bodyY = 310;
+
+  pdf.setFont('helvetica', 'normal').setFontSize(20).setTextColor(50, 50, 70);
+  pdf.text('This is to certify that', bodyX, bodyY, { align: 'center' });
+  bodyY += 35;
+
+  // Student Name
+  pdf.setFont('helvetica', 'bold').setFontSize(32).setTextColor(30, 30, 80);
+  pdf.text(cert.name || 'Student Name', bodyX, bodyY, { align: 'center' });
+  bodyY += 30;
+
+  // Enrollment No
+  pdf.setFont('helvetica', 'normal').setFontSize(18).setTextColor(60, 60, 70);
+  pdf.text(`Enrollment No: ${cert.enrolmentNo || 'N/A'}`, bodyX, bodyY, { align: 'center' });
+  bodyY += 30;
+
+  // Examined in [Year] and qualified for [Degree]
+  const line1 = `having been examined in ${cert.graduationYear || '____'} and found qualified for the`;
+  const line2 = `${cert.degree || 'Degree Name'}.`;
+
+  pdf.text(line1, bodyX, bodyY, { align: 'center' });
+  bodyY += 25;
+  pdf.text(line2, bodyX, bodyY, { align: 'center' });
+
+  // === 5. Bottom Section: QR Code (Center), Signatures (Left/Right) ===
+
+  const bottomY = h - 140;
+  const qrSize = 80;
+  const qrX = w / 2 - qrSize / 2;
+  const qrY = bottomY;
+
+  // QR Code Background (white with border)
+  pdf.setFillColor(255, 255, 255);
+  pdf.setDrawColor(180, 180, 200);
+  pdf.rect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20, 'FD');
+
+  // Generate QR Code
+  const txUrl = `https://sepolia.etherscan.io/tx/${cert.transactionHash}`;
+  const qrDataUrl = await QRCode.toDataURL(txUrl, { width: 120, margin: 1 });
+  pdf.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+
+  // Left: Place & Date
+  pdf.setFont('helvetica', 'normal').setFontSize(12).setTextColor(80, 80, 80);
+  const leftX =70;
+  pdf.text('Place: ________', leftX, h - 80);
+  pdf.text('Date: ________', leftX, h - 60);
+
+  // Right: Registrar Signature
+  const rightX = w - margin - 100;
+  pdf.text('____________________', rightX, h - 80);
+  pdf.setFont('helvetica', 'italic').setFontSize(11);
+  pdf.text('Authorized Signature', rightX + 10, h - 65);
+  pdf.setFont('helvetica', 'normal').setFontSize(12);
+  pdf.text('Registrar', rightX + 40, h - 45);
+
+  return pdf;
+};
 
   const generateSinglePDF = async (cert) => {
     setLoading(true);
@@ -182,9 +255,8 @@ const GenerateCertificatePage = () => {
           <button
             onClick={generateBulkPDF}
             disabled={loading || fetching || selected.length === 0}
-            className={`px-5 py-2 rounded-lg text-white ${
-              loading || fetching ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'
-            }`}
+            className={`px-5 py-2 rounded-lg text-white ${loading || fetching ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'
+              }`}
           >
             {loading ? 'Generating...' : 'Bulk ZIP'}
           </button>
@@ -254,9 +326,8 @@ const GenerateCertificatePage = () => {
                     <button
                       onClick={() => generateSinglePDF(cert)}
                       disabled={loading}
-                      className={`px-2 py-1 rounded text-white ${
-                        loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-                      }`}
+                      className={`px-2 py-1 rounded text-white ${loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
+                        }`}
                     >
                       <FileDown size={16} />
                     </button>
