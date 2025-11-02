@@ -12,21 +12,13 @@ const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
 const API_URL = import.meta.env.VITE_API_URL;
 
 const GRADUATE_DEGREES = [
-  'B.A. (Bachelor of Arts)',
-  'B.Sc. (Bachelor of Science)',
-  'B.Com. (Bachelor of Commerce)',
-  'B.E. / B.Tech (Bachelor of Engineering / Technology)',
-  'BBA (Bachelor of Business Administration)',
-  'BCA (Bachelor of Computer Applications)',
+  'Bachelor of Technology (CSE)',
+  'Bachelor of Technology (ECE)'
 ];
 
 const POSTGRAD_DEGREES = [
-  'M.A. (Master of Arts)',
-  'M.Sc. (Master of Science)',
-  'M.Com. (Master of Commerce)',
-  'M.E. / M.Tech (Master of Engineering / Technology)',
-  'MBA (Master of Business Administration)',
-  'MCA (Master of Computer Applications)',
+  'Master of Technology (CSE)',
+  'Master of Technology (ECE)'
 ];
 
 const generateCertificateNo = () => {
@@ -49,7 +41,7 @@ export default function IssueCertificatePage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [toast, setToast] = useState({ type: '', message: '' });
 
-  const yearOptions = Array.from({ length: 11 }, (_, i) => (new Date().getFullYear() - i).toString());
+  const yearOptions = Array.from({ length: 15 }, (_, i) => (new Date().getFullYear() - i).toString());
 
   useEffect(() => {
     if (toast.message) {
@@ -69,14 +61,13 @@ export default function IssueCertificatePage() {
             degree: selectedDegree,
             graduationYear,
             dateofIssue,
-            certificateNo: autoCertNo ? generateCertificateNo() : s.certificateNo,
           }))
         );
       }
     } else {
       setStudents([]);
     }
-  }, [selectedDegree, graduationYear, dateofIssue, autoCertNo]);
+  }, [selectedDegree, graduationYear, dateofIssue]);
 
   const createStudentRow = () => ({
     certificateNo: autoCertNo ? generateCertificateNo() : '',

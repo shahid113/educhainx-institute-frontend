@@ -48,7 +48,7 @@ const DashboardLayout = () => {
             <img
               src={user.logo}
               alt={user.name || "User Logo"}
-              className="mx-auto w-20 h-20 rounded-full object-cover border-2 border-orange-500 shadow-md"
+              className="mx-auto w-20 h-20 rounded-full object-cover shadow-md"
             />
           )}
           <button
