@@ -136,7 +136,7 @@ const GenerateCertificatePage = () => {
 
   // Examined in [Year] and qualified for [Degree]
   const line1 = `having been examined in ${cert.graduationYear || '____'} and found qualified for the`;
-  const line2 = `${cert.degree || 'Degree Name'}.`;
+  const line2 = `${cert.degree || 'Degree Name'} in ${cert.department}.`;
 
   pdf.text(line1, bodyX, bodyY, { align: 'center' });
   bodyY += 25;

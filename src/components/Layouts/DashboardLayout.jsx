@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  Settings,
 } from "lucide-react";
 
 const DashboardLayout = () => {
@@ -32,6 +33,11 @@ const DashboardLayout = () => {
       label: "Generate PDF",
       icon: <FileText className="w-5 h-5" />,
     },
+    {
+      path:"/dashboard/settings",
+      label:"Settings",
+      icon: <Settings className="w-5 h-5"/>
+    }
   ];
 
   return (

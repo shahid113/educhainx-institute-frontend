@@ -9,7 +9,8 @@ Required JSON shape (keys must appear exactly as shown):
   "name": "",
   "enrolmentNo": "",
   "graduationYear": "",
-  "degree": ""
+  "degree": "",
+  "department": ""
 }
 
 RULES & GUIDELINES:
@@ -47,7 +48,7 @@ RULES & GUIDELINES:
    - If date on certificate is "5 March 2024", prefer "2024-03-05" for dateofIssue when parseable.
 
 FINAL NOTE: The output MUST be exactly one JSON object with the keys in any order but present. Example valid output:
-{"certificateNo":"12345","dateofIssue":"2024-03-05","name":"A. Student","enrolmentNo":"ENR2024001","graduationYear":"2024","degree":"B.Tech"}
+{"certificateNo":"12345","dateofIssue":"2024-03-05","name":"A. Student","enrolmentNo":"ENR2024001","graduationYear":"2024","degree":"B.Tech", "department":"Computer Science and Engineering"}
 `;
 
 export default PROMPT;

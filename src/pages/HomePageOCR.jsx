@@ -1,72 +1,75 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
 import {
-  CheckCircle, Shield, Menu, X,
-  Upload, Camera, FileText, Loader2, Copy, Edit3
+    CheckCircle, Shield, Menu, X,
+    Upload, Camera, FileText, Loader2, Copy, Edit3
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PROMPT from '../utils/prompt';
 
 export default function HomePage() {
-  // --- State ---
-  const [form, setForm] = useState({
-    certificateNo: '',
-    dateofIssue: '',
-    name: '',
-    enrolmentNo: '',
-    graduationYear: '',
-    degree: '',
-    department:''
-  });
 
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [extracting, setExtracting] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-  const [result, setResult] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-
-  const verifyRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
-  const navigate = useNavigate();
-
-  // --- Gemini Setup ---
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const GEMINI_PROMPT = PROMPT;
-
-  // --- Helpers ---
-  const handleNavigateToLogin = () => navigate('/login');
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const scrollToVerify = () => {
-    verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const resetForm = () => {
-    setForm({
-      certificateNo: '', dateofIssue: '', name: '',
-      enrolmentNo: '', graduationYear: '', degree: ''
+    // ------------------- STATE -------------------
+    const [form, setForm] = useState({
+        certificateNo: '',
+        dateofIssue: '',
+        name: '',
+        enrolmentNo: '',
+        graduationYear: '',
+        degree: '',
+        department: ''
     });
-    setUploadedFile(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-    setError('');
-    setSuccessMsg('Form reset');
-    setShowManualForm(false);
-    setTimeout(() => setSuccessMsg(''), 2000);
-  };
 
-  // --- Date parsing & formatting for <input type="date"> ---
+    const [showManualForm, setShowManualForm] = useState(false);
+    const [uploadedFile, setUploadedFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [extracting, setExtracting] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
+    const [result, setResult] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [dragActive, setDragActive] = useState(false);
+
+    const verifyRef = useRef(null);
+    const fileInputRef = useRef(null);
+    const cameraInputRef = useRef(null);
+    const navigate = useNavigate();
+
+
+    // ------------------- HELPERS -------------------
+    const handleNavigateToLogin = () => navigate('/login');
+
+    const handleChange = (e) => {
+        setForm({ ...form, [e.target.name]: e.target.value });
+    };
+
+    const scrollToVerify = () => {
+        verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const resetForm = () => {
+        setForm({
+            certificateNo: '',
+            dateofIssue: '',
+            name: '',
+            enrolmentNo: '',
+            graduationYear: '',
+            degree: '',
+            department: ''
+        });
+
+        setUploadedFile(null);
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+
+        setError('');
+        setSuccessMsg('Form reset');
+        setShowManualForm(false);
+        setTimeout(() => setSuccessMsg(''), 1500);
+    };
+
   // Accepts several common formats and returns YYYY-MM-DD or empty string
   const formatDateForInput = (raw) => {
     if (!raw) return '';
@@ -108,126 +111,96 @@ export default function HomePage() {
     return '';
   };
 
-  // --- File to Base64 ---
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
+    // ------------------- FIXED OCR API -------------------
+    const extractWithGemini = async (file) => {
+        const API_URL = "https://shahid888-educhainx-ocr.hf.space/extract-certificate";
 
-  // --- Gemini AI Extraction ---
-  const extractWithGemini = async (file) => {
-    if (!GEMINI_API_KEY) {
-      setError('Gemini API key missing. Check .env');
-      return;
-    }
+        const formData = new FormData();
+        formData.append("file", file);
 
-    setExtracting(true);
-    setError('');
-    setSuccessMsg('');
+        try {
+            setExtracting(true);
+            setError("");
 
-    try {
-      const base64 = await fileToBase64(file);
-      const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg';
+            const res = await fetch(API_URL, {
+                method: "POST",
+                body: formData
+            });
 
-      const res = await fetch(GEMINI_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: GEMINI_PROMPT },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64.split(',')[1]
-                }
-              }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            response_mime_type: 'application/json'
-          }
-        })
-      });
+            if (!res.ok) {
+                throw new Error("Failed to extract certificate.");
+            }
 
-      if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
+            const extracted = await res.json(); // IMPORTANT ✔
 
-      const data = await res.json();
-      let jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            console.log("OCR RESULT:", extracted);
 
-      jsonText = jsonText.replace(/```json|```/g, '').trim();
-      const extracted = JSON.parse(jsonText);
+            setForm({
+                certificateNo: extracted.certificateNo || "",
+                dateofIssue: formatDateForInput(extracted.dateofIssue || ""),
+                name: extracted.name || "",
+                enrolmentNo: extracted.enrolmentNo || "",
+                graduationYear: extracted.graduationYear || "",
+                degree: extracted.degree || "",
+                department: extracted.department || ""
+            });
 
-      // Auto-fill form and ensure date is formatted for input[type=date]
-      setForm({
-        certificateNo: extracted.certificateNo || '',
-        dateofIssue: formatDateForInput(extracted.dateofIssue || ''),
-        name: extracted.name || '',
-        enrolmentNo: extracted.enrolmentNo || '',
-        graduationYear: extracted.graduationYear || '',
-        degree: extracted.degree || '',
-        department:extracted.department ||''
-      });
+            setShowManualForm(true);
+            setSuccessMsg("AI extracted data successfully!");
 
-      setSuccessMsg('AI extracted data successfully!');
-      setShowManualForm(true); // Show form after AI fill
-    } catch (err) {
-      setError(`AI extraction failed: ${err.message}. Try manual entry.`);
-    } finally {
-      setExtracting(false);
-    }
-  };
 
-  // --- File Handling ---
-  const handleFileSelect = (file) => {
-    if (!file) return;
-    setUploadedFile(file);
+        } catch (err) {
+            console.error(err);
+            setError("AI extraction failed. Try manual entry.");
+        } finally {
+            setExtracting(false);
+        }
+    };
 
-    // revoke previous preview if any
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
 
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
+    // ------------------- FILE HANDLING -------------------
+    const handleFileSelect = (file) => {
+        if (!file) return;
 
-    // start extraction but allow user to edit later
-    extractWithGemini(file);
-  };
+        setUploadedFile(file);
 
-  const handleFileChange = (e) => {
-    const file = e?.target?.files && e.target.files[0];
-    if (file) handleFileSelect(file);
-  };
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
 
-  // --- Drag & Drop ---
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
-  };
+        const url = URL.createObjectURL(file);
+        setPreviewUrl(url);
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+        extractWithGemini(file);
+    };
 
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(file);
-  };
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) handleFileSelect(file);
+    };
 
-  const openCamera = () => {
-    // Reset value so same-file capture works repeatedly
-    if (cameraInputRef.current) {
-      cameraInputRef.current.value = null;
-      cameraInputRef.current.click();
-    }
-  };
 
-  // --- Verify on Blockchain ---
+    // ------------------- DRAG DROP -------------------
+    const handleDrag = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(e.type === "dragenter" || e.type === "dragover");
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+        const file = e.dataTransfer.files[0];
+        if (file) handleFileSelect(file);
+    };
+
+    const openCamera = () => {
+        if (cameraInputRef.current) {
+            cameraInputRef.current.value = null;
+            cameraInputRef.current.click();
+        }
+    };
+
+    // --- Verify on Blockchain ---
   const handleVerify = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -235,7 +208,6 @@ export default function HomePage() {
     setResult(null);
 
     try {
-     
       const payload = {
         certificateNo: form.certificateNo.trim(),
         dateofIssue: form.dateofIssue.trim(),
@@ -250,11 +222,11 @@ export default function HomePage() {
         .map(v => String(v).toLowerCase())
         .join('');
 
+
         console.log(concatenated)
 
-
       const certHash = ethers.keccak256(ethers.toUtf8Bytes(concatenated));
-
+      console.log(certHash);
       const res = await fetch(`${import.meta.env.VITE_API_URL}/verifier/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -7,6 +7,7 @@ import PrivateRoute from './components/auth/PrivateRoute';
 import DashboardLayout from './components/Layouts/DashboardLayout';
 import IssueCertificatePage from './pages/IssueCertificatePage';
 import GenerateCertificatePage from './pages/GenerateCertificatePage';
+import InstituteSettingsPage from './pages/InstituteSettings';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
           <Route index element={<DashboardPage />} /> {/* default /dashboard page */}
           <Route path="issue-certificate" element={<IssueCertificatePage />} />
           <Route path="generate-certificate" element={<GenerateCertificatePage/>} />
+          <Route path='settings' element={<InstituteSettingsPage/>}/>
         </Route>
       </Routes>
     </AuthProvider>
