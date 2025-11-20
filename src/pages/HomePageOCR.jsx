@@ -1,74 +1,74 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
 import {
-    CheckCircle, Shield, Menu, X,
-    Upload, Camera, FileText, Loader2, Copy, Edit3
+  CheckCircle, Shield, Menu, X,
+  Upload, Camera, FileText, Loader2, Copy, Edit3
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PROMPT from '../utils/prompt';
 
 export default function HomePage() {
 
-    // ------------------- STATE -------------------
-    const [form, setForm] = useState({
-        certificateNo: '',
-        dateofIssue: '',
-        name: '',
-        enrolmentNo: '',
-        graduationYear: '',
-        degree: '',
-        department: ''
+  // ------------------- STATE -------------------
+  const [form, setForm] = useState({
+    certificateNo: '',
+    dateofIssue: '',
+    name: '',
+    enrolmentNo: '',
+    graduationYear: '',
+    degree: '',
+    department: ''
+  });
+
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [extracting, setExtracting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [result, setResult] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  const verifyRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const navigate = useNavigate();
+
+
+  // ------------------- HELPERS -------------------
+  const handleNavigateToLogin = () => navigate('/login');
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const scrollToVerify = () => {
+    verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const resetForm = () => {
+    setForm({
+      certificateNo: '',
+      dateofIssue: '',
+      name: '',
+      enrolmentNo: '',
+      graduationYear: '',
+      degree: '',
+      department: ''
     });
 
-    const [showManualForm, setShowManualForm] = useState(false);
-    const [uploadedFile, setUploadedFile] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(null);
-    const [extracting, setExtracting] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [successMsg, setSuccessMsg] = useState('');
-    const [result, setResult] = useState(null);
-    const [showModal, setShowModal] = useState(false);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [dragActive, setDragActive] = useState(false);
+    setUploadedFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
 
-    const verifyRef = useRef(null);
-    const fileInputRef = useRef(null);
-    const cameraInputRef = useRef(null);
-    const navigate = useNavigate();
-
-
-    // ------------------- HELPERS -------------------
-    const handleNavigateToLogin = () => navigate('/login');
-
-    const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-    };
-
-    const scrollToVerify = () => {
-        verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
-    const resetForm = () => {
-        setForm({
-            certificateNo: '',
-            dateofIssue: '',
-            name: '',
-            enrolmentNo: '',
-            graduationYear: '',
-            degree: '',
-            department: ''
-        });
-
-        setUploadedFile(null);
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-        setPreviewUrl(null);
-
-        setError('');
-        setSuccessMsg('Form reset');
-        setShowManualForm(false);
-        setTimeout(() => setSuccessMsg(''), 1500);
-    };
+    setError('');
+    setSuccessMsg('Form reset');
+    setShowManualForm(false);
+    setTimeout(() => setSuccessMsg(''), 1500);
+  };
 
   // Accepts several common formats and returns YYYY-MM-DD or empty string
   const formatDateForInput = (raw) => {
@@ -111,96 +111,99 @@ export default function HomePage() {
     return '';
   };
 
-    // ------------------- FIXED OCR API -------------------
-    const extractWithGemini = async (file) => {
-        const API_URL = "https://shahid888-educhainx-ocr.hf.space/extract-certificate";
+  // ------------------- FIXED OCR API -------------------
+  const extractWithGemini = async (file) => {
+    const API_URL = "https://shahid888-educhainx-ocr.hf.space/extract";
 
-        const formData = new FormData();
-        formData.append("file", file);
+    const formData = new FormData();
+    formData.append("file", file);
 
-        try {
-            setExtracting(true);
-            setError("");
+    try {
+      setExtracting(true);
+      setError("");
 
-            const res = await fetch(API_URL, {
-                method: "POST",
-                body: formData
-            });
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: formData
+      });
 
-            if (!res.ok) {
-                throw new Error("Failed to extract certificate.");
-            }
+      if (!res.ok) {
+        throw new Error("Failed to extract certificate.");
+      }
 
-            const extracted = await res.json(); // IMPORTANT ✔
+      const extracted = await res.json();
 
-            console.log("OCR RESULT:", extracted);
+      // Ensure certificateData exists
+      const data = extracted.certificateData || {};
 
-            setForm({
-                certificateNo: extracted.certificateNo || "",
-                dateofIssue: formatDateForInput(extracted.dateofIssue || ""),
-                name: extracted.name || "",
-                enrolmentNo: extracted.enrolmentNo || "",
-                graduationYear: extracted.graduationYear || "",
-                degree: extracted.degree || "",
-                department: extracted.department || ""
-            });
+      console.log(data)
 
-            setShowManualForm(true);
-            setSuccessMsg("AI extracted data successfully!");
+      setForm({
+        certificateNo: data.certificateNo || "",
+        dateofIssue: formatDateForInput(data.dateofIssue || ""),
+        name: data.name || "",
+        enrolmentNo: data.enrolmentNo || "",
+        graduationYear: data.graduationYear || "",
+        degree: data.degree || "",
+        department: data.department || ""
+      });
 
+      setShowManualForm(true);
+      setSuccessMsg("AI extracted data successfully!");
 
-        } catch (err) {
-            console.error(err);
-            setError("AI extraction failed. Try manual entry.");
-        } finally {
-            setExtracting(false);
-        }
-    };
-
-
-    // ------------------- FILE HANDLING -------------------
-    const handleFileSelect = (file) => {
-        if (!file) return;
-
-        setUploadedFile(file);
-
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-
-        extractWithGemini(file);
-    };
-
-    const handleFileChange = (e) => {
-        const file = e.target.files?.[0];
-        if (file) handleFileSelect(file);
-    };
+    } catch (err) {
+      console.error(err);
+      setError("AI extraction failed. Try manual entry.");
+    } finally {
+      setExtracting(false);
+    }
+  };
 
 
-    // ------------------- DRAG DROP -------------------
-    const handleDrag = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragActive(e.type === "dragenter" || e.type === "dragover");
-    };
 
-    const handleDrop = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragActive(false);
-        const file = e.dataTransfer.files[0];
-        if (file) handleFileSelect(file);
-    };
+  // ------------------- FILE HANDLING -------------------
+  const handleFileSelect = (file) => {
+    if (!file) return;
 
-    const openCamera = () => {
-        if (cameraInputRef.current) {
-            cameraInputRef.current.value = null;
-            cameraInputRef.current.click();
-        }
-    };
+    setUploadedFile(file);
 
-    // --- Verify on Blockchain ---
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+
+    extractWithGemini(file);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileSelect(file);
+  };
+
+
+  // ------------------- DRAG DROP -------------------
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(e.type === "dragenter" || e.type === "dragover");
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  };
+
+  const openCamera = () => {
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = null;
+      cameraInputRef.current.click();
+    }
+  };
+
+  // --- Verify on Blockchain ---
   const handleVerify = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -215,7 +218,7 @@ export default function HomePage() {
         enrolmentNo: form.enrolmentNo.trim(),
         graduationYear: form.graduationYear.trim(),
         degree: form.degree.trim(),
-        department:form.department.trim()
+        department: form.department.trim()
       };
 
       const concatenated = Object.values(payload)
@@ -223,7 +226,7 @@ export default function HomePage() {
         .join('');
 
 
-        console.log(concatenated)
+      console.log(concatenated)
 
       const certHash = ethers.keccak256(ethers.toUtf8Bytes(concatenated));
       console.log(certHash);

@@ -24,7 +24,7 @@ const ConnectWallet = () => {
       await window.ethereum.request({ method: 'eth_requestAccounts' });
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      const walletAddress = await signer.getAddress();
+      const walletAddress = ((await signer.getAddress()).toLowerCase());
 
       if (!CONTRACT_ADDRESS) throw new Error('Contract address is missing.');
 
@@ -42,6 +42,8 @@ const ConnectWallet = () => {
         setLoading(false);
         return showError('Wallet is not approved by government authority.');
       }
+
+      console.log(walletAddress)
 
       const { data: nonceData } = await api.post('/institute/nonce', { walletAddress });
       const signature = await signer.signMessage(nonceData.message);
