@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import { saveAs } from 'file-saver';
 import axios from 'axios';
 import JSZip from 'jszip';
-import { ArrowUpDown, Eye, FileDown } from 'lucide-react';
+import { ArrowUpDown, Eye, FileDown, SortAsc, SortDesc } from 'lucide-react';
 
 const GenerateCertificatePage = () => {
   const [certificates, setCertificates] = useState([]);
@@ -13,7 +13,7 @@ const GenerateCertificatePage = () => {
   const [selected, setSelected] = useState([]);
   const [viewCert, setViewCert] = useState(null);
   const [search, setSearch] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' }); // Changed default to date
 
   useEffect(() => {
     const fetchCertificates = async () => {
@@ -23,7 +23,9 @@ const GenerateCertificatePage = () => {
           `${import.meta.env.VITE_API_URL}/institute/fetch-certificates`,
           { withCredentials: true }
         );
-        setCertificates(res.data.data || []);
+        // Sort by creation date descending by default
+        const sortedCerts = [...(res.data.data || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setCertificates(sortedCerts);
       } catch (err) {
         console.error('Failed to fetch certificates:', err);
         alert('Failed to load certificates.');
@@ -220,12 +222,23 @@ const GenerateCertificatePage = () => {
       (c) =>
         c.name?.toLowerCase().includes(search.toLowerCase()) ||
         c.degree?.toLowerCase().includes(search.toLowerCase()) ||
+        c.department?.toLowerCase().includes(search.toLowerCase()) ||
         c.certificateNo?.toLowerCase().includes(search.toLowerCase())
     );
     if (sortConfig.key) {
       data.sort((a, b) => {
-        const aVal = a[sortConfig.key]?.toString().toLowerCase() || '';
-        const bVal = b[sortConfig.key]?.toString().toLowerCase() || '';
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        // Handle date sorting
+        if (sortConfig.key === 'createdAt' || sortConfig.key === 'graduationYear') {
+          aVal = new Date(aVal);
+          bVal = new Date(bVal);
+        } else {
+          aVal = aVal?.toString().toLowerCase() || '';
+          bVal = bVal?.toString().toLowerCase() || '';
+        }
+
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -236,53 +249,76 @@ const GenerateCertificatePage = () => {
 
   const handleSort = (key) => {
     setSortConfig((prev) =>
-      prev.key === key ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: 'asc' }
+      prev.key === key 
+        ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } 
+        : { key, direction: 'asc' }
     );
   };
 
+  // Helper to render sort icons
+  const renderSortIcon = (columnName) => {
+    if (sortConfig.key !== columnName) {
+      return <ArrowUpDown className="w-4 h-4 opacity-50" />;
+    }
+    return sortConfig.direction === 'asc' 
+      ? <SortAsc className="w-4 h-4 text-blue-600" /> 
+      : <SortDesc className="w-4 h-4 text-blue-600" />;
+  };
+
   return (
-    <div className="p-6">
+     <div className="p-6">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-3">
-        <h1 className="text-2xl font-semibold">Certificate Management</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">Certificate Management</h1>
         <div className="flex gap-3 w-full md:w-auto">
           <input
             type="text"
             placeholder="Search certificates..."
-            className="border rounded-lg px-3 py-2 w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded-lg px-4 py-2 w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           <button
             onClick={generateBulkPDF}
             disabled={loading || fetching || selected.length === 0}
-            className={`px-5 py-2 rounded-lg text-white ${loading || fetching ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'
-              }`}
+            className={`px-5 py-2 rounded-lg text-white font-medium ${
+              loading || fetching || selected.length === 0 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-green-600 hover:bg-green-700 active:bg-green-800'
+            } transition-colors`}
           >
             {loading ? 'Generating...' : 'Bulk ZIP'}
           </button>
         </div>
       </div>
 
-      <div className="overflow-x-auto border rounded-lg shadow">
+      <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50 text-gray-700 uppercase text-xs">
+          <thead className="bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 uppercase text-xs">
             <tr>
-              <th className="px-3 py-3">
+              <th className="px-4 py-3 w-12">
                 <input
                   type="checkbox"
                   checked={selected.length === certificates.length && certificates.length > 0}
                   onChange={toggleSelectAll}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
               </th>
-              {['name', 'degree', 'graduationYear', 'certificateNo'].map((key) => (
+              {[
+                { key: 'certificateNo', label: 'Certificate ID' },
+                { key: 'name', label: 'Name' },
+                { key: 'degree', label: 'Degree' },
+                { key: 'department', label: 'Department' },
+                { key: 'createdAt', label: 'Date Created' },
+                { key: 'graduationYear', label: 'Year' }
+              ].map((col) => (
                 <th
-                  key={key}
-                  className="px-4 py-3 cursor-pointer select-none hover:text-blue-600"
-                  onClick={() => handleSort(key)}
+                  key={col.key}
+                  className="px-4 py-3 cursor-pointer select-none hover:text-blue-600 transition-colors"
+                  onClick={() => handleSort(col.key)}
                 >
                   <div className="flex items-center justify-between">
-                    {key === 'graduationYear' ? 'Year' : key.charAt(0).toUpperCase() + key.slice(1)}
-                    <ArrowUpDown className="w-4 h-4 inline ml-1" />
+                    <span>{col.label}</span>
+                    <div className="ml-2">{renderSortIcon(col.key)}</div>
                   </div>
                 </th>
               ))}
@@ -292,45 +328,64 @@ const GenerateCertificatePage = () => {
           <tbody className="bg-white divide-y divide-gray-100">
             {fetching ? (
               <tr>
-                <td colSpan={6} className="text-center py-6">
-                  Loading...
+                <td colSpan={8} className="text-center py-8">
+                  <div className="flex justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                  </div>
+                  <p className="mt-2 text-gray-500">Loading certificates...</p>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-6">
-                  No certificates found
+                <td colSpan={8} className="text-center py-8">
+                  <div className="text-gray-500">No certificates found</div>
                 </td>
               </tr>
             ) : (
               filtered.map((cert) => (
-                <tr key={cert._id} className="hover:bg-gray-50">
-                  <td className="px-3 py-3 text-center">
+                <tr key={cert._id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 text-center">
                     <input
                       type="checkbox"
                       checked={selected.includes(cert._id)}
                       onChange={() => toggleSelect(cert._id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                   </td>
-                  <td className="px-4 py-3 font-medium">{cert.name}</td>
-                  <td className="px-4 py-3">{cert.degree}</td>
-                  <td className="px-4 py-3">{cert.graduationYear || 'N/A'}</td>
-                  <td className="px-4 py-3">{cert.certificateNo}</td>
+                  <td className="px-4 py-3 text-gray-700 font-mono">{cert.certificateNo}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{cert.name}</td>
+                  <td className="px-4 py-3 text-gray-700">{cert.degree}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    <span className="inline-block px-2 py-1 text-xs font-semibold text-blue-800 bg-blue-100 rounded-full">
+                      {cert.department}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {new Date(cert.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">{cert.graduationYear || 'N/A'}</td>
                   <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => setViewCert(cert)}
-                      className="px-2 py-1 border rounded hover:bg-gray-100 mr-2"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    <button
-                      onClick={() => generateSinglePDF(cert)}
-                      disabled={loading}
-                      className={`px-2 py-1 rounded text-white ${loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-                        }`}
-                    >
-                      <FileDown size={16} />
-                    </button>
+                    <div className="flex justify-center space-x-2">
+                      <button
+                        onClick={() => setViewCert(cert)}
+                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-800 transition-colors"
+                        title="View Certificate"
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <button
+                        onClick={() => generateSinglePDF(cert)}
+                        disabled={loading}
+                        className={`p-2 rounded-lg ${
+                          loading 
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-green-600 hover:bg-green-50 hover:text-green-800'
+                        } transition-colors`}
+                        title="Download PDF"
+                      >
+                        <FileDown size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -340,32 +395,46 @@ const GenerateCertificatePage = () => {
       </div>
 
       {viewCert && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg w-[90%] md:w-[70%] lg:w-[50%] p-6 relative">
-            <button
-              onClick={() => setViewCert(null)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
-            >
-              ✕
-            </button>
-            <h2 className="text-xl font-semibold text-center mb-4">Certificate Preview</h2>
-            <div className="border rounded-lg shadow-sm p-6 text-center">
-              <h1 className="text-2xl font-bold">Certificate of Completion</h1>
-              <p className="mt-2 text-gray-600">
-                Awarded by {viewCert.instituteId?.name || 'Unknown Institute'}
-              </p>
-              <h2 className="mt-6 text-xl font-semibold">{viewCert.name}</h2>
-              <p className="mt-3">
-                For successfully completing <b>{viewCert.degree}</b>
-              </p>
-              <p className="mt-3 text-sm text-gray-500">
-                ID: {viewCert.certificateNo} | Year: {viewCert.graduationYear || 'N/A'}
-              </p>
-              <div className="mt-6 flex justify-center">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://sepolia.etherscan.io/tx/${viewCert.transactionHash}`}
-                  alt="QR"
-                />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">Certificate Preview</h2>
+                <button
+                  onClick={() => setViewCert(null)}
+                  className="text-gray-500 hover:text-gray-800 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="border border-gray-200 rounded-lg shadow-sm p-6 bg-gradient-to-br from-gray-50 to-white">
+                <div className="text-center">
+                  <h1 className="text-2xl font-bold text-gray-800">Certificate of Completion</h1>
+                  <p className="mt-2 text-gray-600">
+                    Awarded by {viewCert.instituteId?.name || 'Unknown Institute'}
+                  </p>
+                  <div className="mt-6">
+                    <h2 className="text-xl font-semibold text-gray-900">{viewCert.name}</h2>
+                    <p className="mt-2">
+                      Successfully completed <span className="font-bold">{viewCert.degree}</span> in <span className="font-bold">{viewCert.department}</span>
+                    </p>
+                    <p className="mt-3 text-sm text-gray-500">
+                      Certificate ID: {viewCert.certificateNo} | Year: {viewCert.graduationYear || 'N/A'}
+                    </p>
+                    <div className="mt-6 flex justify-center">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://sepolia.etherscan.io/tx/${viewCert.transactionHash}`}
+                        alt="Verification QR Code"
+                        className="border border-gray-300 p-2 bg-white"
+                      />
+                      <div className="ml-4 text-left">
+                        <p className="text-sm text-gray-600">Scan to verify on blockchain</p>
+                        <p className="text-xs text-gray-500 mt-1">Transaction Hash:</p>
+                        <p className="text-xs font-mono text-gray-700 truncate max-w-xs">{viewCert.transactionHash}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
