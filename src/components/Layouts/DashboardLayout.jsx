@@ -11,6 +11,7 @@ import {
   Menu,
   Settings,
 } from "lucide-react";
+import { CompleteYourProfile } from "../Dashboard/CompleteYourProfile";
 
 const DashboardLayout = () => {
   const location = useLocation();
@@ -42,6 +43,7 @@ const DashboardLayout = () => {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-white to-gray-100 text-gray-800">
+      <CompleteYourProfile/>
       {/* Sidebar */}
       <aside
         className={`${
