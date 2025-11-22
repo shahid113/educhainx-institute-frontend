@@ -342,7 +342,7 @@ export default function HomePage() {
 
       {/* Main Verification Section */}
       <main className="max-w-4xl mx-auto px-4 py-12" ref={verifyRef}>
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-md border border-slate-100 overflow-hidden">
 
           {/* Header */}
           <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-slate-200">
@@ -572,12 +572,12 @@ export default function HomePage() {
 
             <div className="space-y-4 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-500">Certificate ID</span>
+                <span className="text-slate-500">Certificate Blockchain ID</span>
                 <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">{result.certId}</code>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-slate-500">Hash</span>
+                <span className="text-slate-500">Certificate Data Hash</span>
                 <div className="flex items-center gap-2">
                   <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded max-w-32 truncate">{result.certHash}</code>
                   <button onClick={() => copyToClipboard(result.certHash)} className="p-1.5 hover:bg-slate-200 rounded">
@@ -599,16 +599,8 @@ export default function HomePage() {
               </div>
 
               <div className="flex justify-end gap-3 mt-4">
-                <a
-                  href={`${import.meta.env.VITE_API_URL}/verifier/report/${result.certId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 text-sm border rounded-xl hover:bg-slate-50"
-                >
-                  Download Report
-                </a>
                 <button
-                  onClick={() => { setShowModal(false); resetForm(); }}
+                  onClick={() => { setShowModal(false) }}
                   className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium"
                 >
                   Done
