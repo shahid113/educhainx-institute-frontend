@@ -16,7 +16,7 @@ export default function HomePage() {
     enrolmentNo: '',
     graduationYear: '',
     degree: '',
-    department:''
+    department: ''
   });
 
   const [showManualForm, setShowManualForm] = useState(false);
@@ -171,7 +171,7 @@ export default function HomePage() {
         enrolmentNo: extracted.enrolmentNo || '',
         graduationYear: extracted.graduationYear || '',
         degree: extracted.degree || '',
-        department:extracted.department ||''
+        department: extracted.department || ''
       });
 
       setSuccessMsg('AI extracted data successfully!');
@@ -235,7 +235,7 @@ export default function HomePage() {
     setResult(null);
 
     try {
-     
+
       const payload = {
         certificateNo: form.certificateNo.trim(),
         dateofIssue: form.dateofIssue.trim(),
@@ -243,14 +243,14 @@ export default function HomePage() {
         enrolmentNo: form.enrolmentNo.trim(),
         graduationYear: form.graduationYear.trim(),
         degree: form.degree.trim(),
-        department:form.department.trim()
+        department: form.department.trim()
       };
 
       const concatenated = Object.values(payload)
         .map(v => String(v).toLowerCase())
         .join('');
 
-        console.log(concatenated)
+      console.log(concatenated)
 
 
       const certHash = ethers.keccak256(ethers.toUtf8Bytes(concatenated));
@@ -302,9 +302,14 @@ export default function HomePage() {
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/80 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="p-1.5 rounded-lg bg-gradient-to-tr from-blue-600 to-purple-600 text-white">
-                <Shield className="w-6 h-6" />
+            <div className="flex items-center">
+              <div className="">
+                <img
+                  src="https://ik.imagekit.io/36liczygo/Picsart_25-11-23_22-59-19-838.png"
+                  alt="Logo"
+                  className="w-25 h-25 mt-2"
+                />
+
               </div>
               <div>
                 <h1 className="text-xl font-bold">EduchainX</h1>
