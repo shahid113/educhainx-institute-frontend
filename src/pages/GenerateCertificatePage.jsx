@@ -152,14 +152,14 @@ const GenerateCertificatePage = () => {
   const qrY = bottomY;
 
   // QR Code Background (white with border)
-  pdf.setFillColor(255, 255, 255);
-  pdf.setDrawColor(180, 180, 200);
-  pdf.rect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20, 'FD');
+ // pdf.setFillColor(255, 255, 255);
+  //pdf.setDrawColor(180, 180, 200);
+  //pdf.rect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20, 'FD');
 
-  // Generate QR Code
-  const txUrl = `https://sepolia.etherscan.io/tx/${cert.transactionHash}`;
-  const qrDataUrl = await QRCode.toDataURL(txUrl, { width: 120, margin: 1 });
-  pdf.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+  
+  // const txUrl = `https://sepolia.etherscan.io/tx/${cert.transactionHash}`;
+  // const qrDataUrl = await QRCode.toDataURL(txUrl, { width: 120, margin: 1 });
+  // pdf.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
   // Left: Place & Date
   pdf.setFont('helvetica', 'normal').setFontSize(12).setTextColor(80, 80, 80);
